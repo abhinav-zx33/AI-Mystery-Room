@@ -20,3 +20,13 @@ app.use('/api', (_request, response) => {
     },
   });
 });
+
+app.use((error, _request, response, _next) => {
+  console.error(`API request failed: ${error.name ?? 'Error'}`);
+  response.status(500).json({
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: 'The request could not be completed. Please try again.',
+    },
+  });
+});

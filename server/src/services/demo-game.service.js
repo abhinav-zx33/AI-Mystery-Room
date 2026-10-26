@@ -1,41 +1,90 @@
-import { randomUUID } from 'node:crypto';
-import { demoCase } from '../data/demo-case.public.js';
-import { demoCaseSolution } from '../data/demo-case.solution.js';
+import { createHmac, randomBytes } from 'node:crypto';
+import { env } from '../config/env.js';
+import { CaseModel } from '../models/Case.js';
+import { CaseSolutionModel } from '../models/CaseSolution.js';
+import { GameSessionModel } from '../models/GameSession.js';
 
-const sessions = new Map();
+function hashSessionToken(token) {
+  return createHmac('sha256', env.sessionTokenSecret).update(token).digest('hex');
+}
 
-export function createDemoSession(caseId) {
-  if (caseId !== demoCase.id) return null;
+export function getCaseRecord(caseId) {
+  return CaseModel.findOne({ id: caseId }).lean();
+}
 
-  const session = {
-    id: randomUUID(),
-    caseId,
+export async function createDemoSession(caseId) {
+  const caseRecord = await getCaseRecord(caseId);
+  if (!caseRecord || caseRecord.status !== 'ready') return null;
+
+  const sessionToken = randomBytes(32).toString('base64url');
+  await GameSessionModel.create({
+    caseId: caseRecord._id,
+    sessionTokenHash: hashSessionToken(sessionToken),
     status: 'in_progress',
-    accusation: null,
-    createdAt: new Date().toISOString(),
-  };
-  sessions.set(session.id, session);
-  return session;
+  });
+
+  return { id: sessionToken, caseId, status: 'in_progress' };
 }
 
-export function findDemoSession(caseId, sessionId) {
-  const session = sessions.get(sessionId);
-  return session?.caseId === caseId ? session : null;
+export async function findDemoSession(caseId, sessionToken) {
+  const caseRecord = await getCaseRecord(caseId);
+  if (!caseRecord || typeof sessionToken !== 'string' || sessionToken.length > 128) return null;
+
+  const sessionRecord = await GameSessionModel.findOne({
+    caseId: caseRecord._id,
+    sessionTokenHash: hashSessionToken(sessionToken),
+  }).lean();
+
+  return sessionRecord ? { caseRecord, sessionRecord } : null;
 }
 
-export function submitDemoAccusation(caseId, sessionId, suspectId) {
-  const session = findDemoSession(caseId, sessionId);
-  if (!session) return { kind: 'session_not_found' };
-  if (!demoCase.suspects.some((suspect) => suspect.id === suspectId)) {
+export async function submitDemoAccusation(caseId, sessionToken, suspectId) {
+  const resolvedSession = await findDemoSession(caseId, sessionToken);
+  if (!resolvedSession) return { kind: 'session_not_found' };
+
+  const { caseRecord, sessionRecord } = resolvedSession;
+  if (!caseRecord.suspects.some((suspect) => suspect.id === suspectId)) {
     return { kind: 'invalid_suspect' };
   }
-  if (session.accusation) return { kind: 'already_resolved', session };
+  if (sessionRecord.status === 'resolved') {
+    return { kind: 'already_resolved', session: sessionRecord };
+  }
 
-  session.status = 'resolved';
-  session.accusation = {
+  const solution = await CaseSolutionModel.findOne({ caseId: caseRecord._id }).lean();
+  if (!solution) throw new Error('The case solution is missing from persistence.');
+
+  const accusation = {
     suspectId,
-    isCorrect: suspectId === demoCaseSolution.culpritId,
-    submittedAt: new Date().toISOString(),
+    isCorrect: suspectId === solution.culpritId,
+    submittedAt: new Date(),
   };
-  return { kind: 'resolved', session };
+  const updatedSession = await GameSessionModel.findOneAndUpdate(
+    { _id: sessionRecord._id, status: 'in_progress' },
+    { $set: { status: 'resolved', accusation } },
+    { new: true },
+  ).lean();
+
+  if (updatedSession) return { kind: 'resolved', session: updatedSession };
+
+  const latestSession = await GameSessionModel.findById(sessionRecord._id).lean();
+  if (latestSession?.status === 'resolved') {
+    return { kind: 'already_resolved', session: latestSession };
+  }
+  throw new Error('The accusation could not be recorded.');
+}
+
+export async function getDemoResult(caseId, sessionToken) {
+  const resolvedSession = await findDemoSession(caseId, sessionToken);
+  if (!resolvedSession) return { kind: 'session_not_found' };
+  if (resolvedSession.sessionRecord.status !== 'resolved') return { kind: 'result_not_available' };
+
+  const solution = await CaseSolutionModel.findOne({ caseId: resolvedSession.caseRecord._id }).lean();
+  if (!solution) throw new Error('The case solution is missing from persistence.');
+
+  return {
+    kind: 'resolved',
+    session: resolvedSession.sessionRecord,
+    caseRecord: resolvedSession.caseRecord,
+    solution,
+  };
 }

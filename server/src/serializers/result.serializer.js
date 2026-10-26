@@ -1,8 +1,5 @@
-import { demoCase } from '../data/demo-case.public.js';
-import { demoCaseSolution } from '../data/demo-case.solution.js';
-
-export function serializeResult(session) {
-  const culprit = demoCase.suspects.find(({ id }) => id === demoCaseSolution.culpritId);
+export function serializeResult(caseRecord, solution, session) {
+  const culprit = caseRecord.suspects.find(({ id }) => id === solution.culpritId);
 
   return {
     isCorrect: session.accusation.isCorrect,
@@ -11,17 +8,17 @@ export function serializeResult(session) {
     attemptsUsed: 1,
     status: 'resolved',
     culprit: { id: culprit.id, name: culprit.name },
-    explanation: demoCaseSolution.explanation,
-    motive: demoCaseSolution.motive,
-    method: demoCaseSolution.method,
-    evidenceChain: demoCaseSolution.evidenceChain.map((entry) => ({
+    explanation: solution.explanation,
+    motive: solution.motive,
+    method: solution.method,
+    evidenceChain: solution.evidenceChain.map((entry) => ({
       ...entry,
-      title: demoCase.evidence.find(({ id }) => id === entry.evidenceId)?.title,
+      title: caseRecord.evidence.find(({ id }) => id === entry.evidenceId)?.title,
     })),
-    suspectClearance: demoCaseSolution.suspectClearance.map((entry) => ({
+    suspectClearance: solution.suspectClearance.map((entry) => ({
       ...entry,
-      name: demoCase.suspects.find(({ id }) => id === entry.suspectId)?.name,
+      name: caseRecord.suspects.find(({ id }) => id === entry.suspectId)?.name,
     })),
-    timelineReconstruction: demoCaseSolution.timelineReconstruction,
+    timelineReconstruction: solution.timelineReconstruction,
   };
 }

@@ -22,8 +22,20 @@ try {
   throw new Error('CLIENT_ORIGIN must be a valid absolute URL.');
 }
 
+const mongodbUri = process.env.MONGODB_URI;
+if (!mongodbUri || !/^mongodb(?:\+srv)?:\/\//.test(mongodbUri)) {
+  throw new Error('MONGODB_URI is required and must be a MongoDB connection URI.');
+}
+
+const sessionTokenSecret = process.env.SESSION_TOKEN_SECRET;
+if (!sessionTokenSecret || sessionTokenSecret.length < 32) {
+  throw new Error('SESSION_TOKEN_SECRET is required and must contain at least 32 characters. Generate a random secret for local development.');
+}
+
 export const env = Object.freeze({
   nodeEnv,
   port: positiveInteger(process.env.PORT, 'PORT', 5000),
   clientOrigin,
+  mongodbUri,
+  sessionTokenSecret,
 });
