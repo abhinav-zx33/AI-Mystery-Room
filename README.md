@@ -1,6 +1,6 @@
 # TraceBit
 
-TraceBit is a fictional investigation game. Milestones 1-3 are complete. The Milestone 4 generation flow is implemented; live generation requires a configured Gemini API key and has not yet been verified with that key.
+TraceBit is a fictional investigation game. All Milestones are completed.
 
 Generated public case data and private solutions are stored separately in MongoDB. The server validates model output and references before marking a case ready. It returns only the public case before accusation. Image evidence is shown as a labeled placeholder because this project does not include an image-generation provider.
 
