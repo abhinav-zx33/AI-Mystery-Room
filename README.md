@@ -76,8 +76,11 @@ The API health endpoint is `GET /api/v1/health`, returning `{ "status": "ok" }`.
 - `MONGODB_URI` and `SESSION_TOKEN_SECRET` are required to start the API.
 - `GEMINI_API_KEY` is required only when creating a generated case.
 - `GEMINI_MODEL` selects the configured Gemini model.
-- `CLIENT_ORIGIN` is reserved for server origin configuration.
+- `CLIENT_ORIGIN` is the allowed client origin; separate multiple origins with commas. Development also permits the common Vite localhost ports 5173 and 5174.
+- `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS` configure per-IP limits for generation and accusation requests.
 - `GEMINI_API_KEY` must never be placed in a client/Vite variable or committed.
+
+The API returns a request ID with errors and logs request IDs, paths, response codes, and timings without logging request bodies or query tokens. Its rate limits use in-memory per-process counters; use a shared rate-limit store and configure trusted proxy handling before running multiple server instances behind a proxy.
 
 If Gemini is not configured, `POST /api/v1/cases` returns a controlled setup error. Invalid model output is retried with bounded repair attempts and is never saved as a playable case.
 
@@ -87,6 +90,7 @@ If Gemini is not configured, `POST /api/v1/cases` returns a controlled setup err
 - `npm run dev:server` - run only Express.
 - `npm run dev:client` - run only Vite.
 - `npm run build` - build the client.
+- `npm --prefix server test` - run server hardening and API validation tests.
 - `npm start` - start the Express server.
 
 ## Milestones
@@ -95,7 +99,7 @@ If Gemini is not configured, `POST /api/v1/cases` returns a controlled setup err
 2. **Mock playable case** - complete.
 3. **MongoDB persistence and sessions** - complete.
 4. **Gemini generation** - implemented; live generation requires `GEMINI_API_KEY` and still needs a live run-through.
-5. **Hardening** - not implemented.
+5. **Hardening** - implemented with per-process rate limits, origin allowlisting, API security headers, bounded JSON bodies, request IDs, privacy-aware logs, stricter route validation, and server tests.
 6. **Polish** - not implemented.
 7. **Deployment readiness** - not implemented.
 

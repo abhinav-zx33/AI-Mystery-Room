@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { createDemoSession, createSessionForCaseRecord, findDemoSession, getCaseRecord, getDemoResult, submitDemoAccusation } from '../services/demo-game.service.js';
 import { env } from '../config/env.js';
 import { createCaseRequestSchema, formatValidationIssues } from '../schemas/case-generation.schema.js';
@@ -6,14 +7,30 @@ import { CaseGenerationFailedError, GeneratedCasePersistenceError, generateMyste
 import { GeminiConfigurationError, GeminiProviderError, isQuotaExhaustedGeminiError } from '../services/gemini.service.js';
 import { serializePublicCase } from '../serializers/public-case.serializer.js';
 import { serializeResult } from '../serializers/result.serializer.js';
+import { createRateLimiter } from '../middleware/hardening.js';
 
 export const casesRouter = Router();
+const caseIdSchema = z.string().min(2).max(64).regex(/^[a-z0-9][a-z0-9_-]*$/i);
+const sessionTokenSchema = z.string().min(40).max(128).regex(/^[A-Za-z0-9_-]+$/);
+const accusationSchema = z.object({
+  sessionId: sessionTokenSchema,
+  suspectId: z.string().trim().min(2).max(64).regex(/^[a-z0-9][a-z0-9_-]*$/i),
+}).strict();
+const caseGenerationRateLimit = createRateLimiter();
+const accusationRateLimit = createRateLimiter();
 
 function error(response, status, code, message, details) {
-  return response.status(status).json({ error: { code, message, ...(details ? { details } : {}) } });
+  return response.status(status).json({ error: { code, message, requestId: response.req.id, ...(details ? { details } : {}) } });
 }
 
-casesRouter.post('/', async (request, response) => {
+casesRouter.param('caseId', (request, response, next, caseId) => {
+  if (!caseIdSchema.safeParse(caseId).success) {
+    return error(response, 400, 'VALIDATION_ERROR', 'The case ID is invalid.');
+  }
+  next();
+});
+
+casesRouter.post('/', caseGenerationRateLimit, async (request, response) => {
   const parsedRequest = createCaseRequestSchema.safeParse(request.body);
   if (!parsedRequest.success) {
     return error(response, 400, 'VALIDATION_ERROR', 'Review the premise and settings, then try again.', formatValidationIssues(parsedRequest.error.issues));
@@ -32,19 +49,13 @@ casesRouter.post('/', async (request, response) => {
     if (caseRecord) await removeGeneratedMystery(caseRecord).catch(() => {});
     const providerStatus = Number(failure.cause?.status ?? failure.cause?.statusCode);
     const providerCode = String(failure.cause?.code ?? '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
-    const rawProviderMessage = String(failure.cause?.message ?? '');
-    const providerMessage = (env.geminiApiKey
-      ? rawProviderMessage.replaceAll(env.geminiApiKey, '[redacted]')
-      : rawProviderMessage)
-      .replace(/AIza[\w-]{20,}/g, '[redacted]')
-      .replace(/\s+/g, ' ')
-      .slice(0, 240);
-    console.error(
-      `[case-generation] ${failure.name ?? 'Error'}`
-      + (Number.isInteger(providerStatus) && providerStatus > 0 ? ` status=${providerStatus}` : '')
-      + (providerCode ? ` code=${providerCode}` : '')
-      + (providerMessage ? ` detail=${providerMessage}` : ''),
-    );
+    console.error(JSON.stringify({
+      requestId: request.id,
+      category: 'case_generation_failed',
+      errorType: failure.name ?? 'Error',
+      ...(Number.isInteger(providerStatus) && providerStatus > 0 ? { providerStatus } : {}),
+      ...(providerCode ? { providerCode } : {}),
+    }));
 
     if (failure instanceof GeminiConfigurationError) {
       const message = env.nodeEnv === 'development'
@@ -63,7 +74,9 @@ casesRouter.post('/', async (request, response) => {
     }
     if (failure instanceof CaseGenerationFailedError) {
       const details = failure.validationErrors.slice(0, 8);
-      if (details.length) console.error(`[case-generation] validation=${details.join(' | ').slice(0, 700)}`);
+      if (details.length && env.nodeEnv === 'development') {
+        console.error(JSON.stringify({ requestId: request.id, category: 'case_generation_validation_failed', issueCount: details.length }));
+      }
       return error(
         response,
         502,
@@ -97,7 +110,7 @@ casesRouter.post('/:caseId/sessions', async (request, response) => {
 
 casesRouter.get('/:caseId/session', async (request, response) => {
   const sessionToken = request.query.sessionId;
-  if (typeof sessionToken !== 'string' || !sessionToken) {
+  if (typeof sessionToken !== 'string' || !sessionTokenSchema.safeParse(sessionToken).success) {
     return error(response, 400, 'SESSION_NOT_FOUND', 'A valid case session is required.');
   }
   const resolvedSession = await findDemoSession(request.params.caseId, sessionToken);
@@ -114,11 +127,12 @@ casesRouter.get('/:caseId/session', async (request, response) => {
   });
 });
 
-casesRouter.post('/:caseId/accusation', async (request, response) => {
-  const { sessionId, suspectId } = request.body ?? {};
-  if (typeof sessionId !== 'string' || typeof suspectId !== 'string') {
+casesRouter.post('/:caseId/accusation', accusationRateLimit, async (request, response) => {
+  const parsedAccusation = accusationSchema.safeParse(request.body);
+  if (!parsedAccusation.success) {
     return error(response, 400, 'VALIDATION_ERROR', 'Choose one suspect and submit a valid case session.');
   }
+  const { sessionId, suspectId } = parsedAccusation.data;
 
   const submission = await submitDemoAccusation(request.params.caseId, sessionId, suspectId);
   if (submission.kind === 'session_not_found') {
@@ -142,7 +156,7 @@ casesRouter.post('/:caseId/accusation', async (request, response) => {
 
 casesRouter.get('/:caseId/result', async (request, response) => {
   const sessionToken = request.query.sessionId;
-  if (typeof sessionToken !== 'string' || !sessionToken) {
+  if (typeof sessionToken !== 'string' || !sessionTokenSchema.safeParse(sessionToken).success) {
     return error(response, 400, 'SESSION_NOT_FOUND', 'A valid case session is required.');
   }
   const result = await getDemoResult(request.params.caseId, sessionToken);
