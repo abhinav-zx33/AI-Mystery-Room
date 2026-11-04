@@ -10,6 +10,7 @@ export default function ResultPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -30,15 +31,15 @@ export default function ResultPage() {
     }
     load();
     return () => { active = false; };
-  }, [caseId]);
+  }, [caseId, reloadKey]);
 
   function replay() {
     clearStoredSessionId(caseId);
     navigate(`/cases/${caseId}`);
   }
 
-  if (loading) return <AppShell eyebrow="CASE REVEAL"><p className="loading-state" role="status">Unsealing the result…</p></AppShell>;
-  if (error || !result) return <AppShell eyebrow="CASE REVEAL"><section className="error-panel" role="status"><p className="eyebrow">SOLUTION SEALED</p><h1>Not ready to reveal.</h1><p>{error}</p><Link className="primary-link" to={`/cases/${caseId}/investigate`}><span>Return to investigation</span><span aria-hidden="true">↗</span></Link></section></AppShell>;
+  if (loading) return <AppShell eyebrow="CASE REVEAL"><p className="loading-state" role="status" aria-live="polite">Unsealing the result…</p></AppShell>;
+  if (error || !result) return <AppShell eyebrow="CASE REVEAL"><section className="error-panel" role="alert"><p className="eyebrow">SOLUTION SEALED</p><h1>Not ready to reveal.</h1><p>{error}</p><div className="error-actions"><button className="secondary-button" type="button" onClick={() => { setError(''); setLoading(true); setReloadKey((key) => key + 1); }}>Try again</button><Link className="primary-link" to={`/cases/${caseId}/investigate`}><span>Return to investigation</span><span aria-hidden="true">↗</span></Link></div></section></AppShell>;
 
   return (
     <AppShell eyebrow="CASE REVEAL">

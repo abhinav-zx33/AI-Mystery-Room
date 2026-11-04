@@ -80,5 +80,5 @@ function formatIncidentTime(value) {
 }
 
 function ErrorPanel({ message }) {
-  return <section className="error-panel" role="alert"><p className="eyebrow">CASE FILE UNAVAILABLE</p><h1>We couldn’t open this file.</h1><p>{message}</p><Link to="/">Return to the case desk</Link></section>;
+  return <section className="error-panel" role="alert"><p className="eyebrow">CASE FILE UNAVAILABLE</p><h1>We couldn’t open this file.</h1><p>{message}</p><div className="error-actions"><button className="secondary-button" type="button" onClick={() => window.location.reload()}>Try again</button><Link to="/">Return to the case desk</Link></div></section>;
 }

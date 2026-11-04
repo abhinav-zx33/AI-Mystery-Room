@@ -70,7 +70,7 @@ export default function CreateCasePage() {
         <p className="lede">Describe a fictional incident. The case desk will prepare suspects, evidence, and a hidden solution for your investigation.</p>
       </section>
 
-      <form className="create-form" onSubmit={submitPremise}>
+      <form className="create-form" onSubmit={submitPremise} aria-busy={busy}>
         <label className="form-field premise-field">
           <span>What happened? <small>30–1,500 characters</small></span>
           <textarea
@@ -80,6 +80,7 @@ export default function CreateCasePage() {
             maxLength={1500}
             rows={6}
             required
+            aria-invalid={premise.trim().length < 30 || premise.trim().length > 1500 ? 'true' : undefined}
             placeholder="A rare manuscript disappears from a locked museum archive during a brief power cut..."
             aria-describedby="premise-help premise-count"
           />
@@ -131,7 +132,7 @@ export default function CreateCasePage() {
           <button className="primary-link button-link" type="submit" disabled={busy}>
             <span>{busy ? 'Building and checking the case…' : 'Generate fictional case'}</span><span aria-hidden="true">↗</span>
           </button>
-          {busy && <p className="generation-status" role="status" aria-live="polite">Preparing a fictional investigation. This may take a little while.</p>}
+          {busy && <p className="generation-status" role="status" aria-live="polite"><span className="loading-indicator" aria-hidden="true" />Preparing and checking your fictional investigation. This may take a little while.</p>}
         </div>
       </form>
       <p className="privacy-note">Want to try the fixed demo? <Link to="/cases/demo-case-001">Open the sample case</Link>.</p>

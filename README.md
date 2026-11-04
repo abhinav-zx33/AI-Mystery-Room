@@ -100,7 +100,7 @@ If Gemini is not configured, `POST /api/v1/cases` returns a controlled setup err
 3. **MongoDB persistence and sessions** - complete.
 4. **Gemini generation** - implemented; live generation requires `GEMINI_API_KEY` and still needs a live run-through.
 5. **Hardening** - implemented with per-process rate limits, origin allowlisting, API security headers, bounded JSON bodies, request IDs, privacy-aware logs, stricter route validation, and server tests.
-6. **Polish** - not implemented.
+6. **Polish** - implemented with responsive investigation and history views, keyboard-accessible accusation confirmation, skip links, clearer loading/error/empty states, and improved touch and focus styles.
 7. **Deployment readiness** - not implemented.
 
 See `SPEC.md` for the full product and engineering requirements.

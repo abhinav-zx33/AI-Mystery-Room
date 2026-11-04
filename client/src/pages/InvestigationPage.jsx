@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell.jsx';
 import { getCase, getSession, submitAccusation } from '../lib/api.js';
@@ -7,6 +7,8 @@ import { getStoredSessionId } from '../lib/session.js';
 export default function InvestigationPage() {
   const { caseId } = useParams();
   const navigate = useNavigate();
+  const dialogRef = useRef(null);
+  const confirmationTriggerRef = useRef(null);
   const [caseFile, setCaseFile] = useState(null);
   const [sessionId, setSessionId] = useState('');
   const [selectedSuspect, setSelectedSuspect] = useState('');
@@ -18,16 +20,25 @@ export default function InvestigationPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
     async function load() {
+      setLoading(true);
+      setError('');
       try {
         const id = getStoredSessionId(caseId);
-        if (!id) { navigate(`/cases/${caseId}`, { replace: true }); return; }
+        if (!id) {
+          navigate(`/cases/${caseId}`, { replace: true });
+          return;
+        }
         const [data, session] = await Promise.all([getCase(caseId), getSession(id, caseId)]);
         if (!active) return;
-        if (session.status === 'resolved') { navigate(`/cases/${caseId}/result`, { replace: true }); return; }
+        if (session.status === 'resolved') {
+          navigate(`/cases/${caseId}/result`, { replace: true });
+          return;
+        }
         setCaseFile(data);
         setSessionId(id);
       } catch (loadError) {
@@ -38,7 +49,19 @@ export default function InvestigationPage() {
     }
     load();
     return () => { active = false; };
-  }, [caseId, navigate]);
+  }, [caseId, navigate, reloadKey]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (confirming && !dialog.open) {
+      dialog.showModal();
+      dialog.querySelector('button')?.focus();
+    } else if (!confirming && dialog.open) {
+      dialog.close();
+      confirmationTriggerRef.current?.focus();
+    }
+  }, [confirming]);
 
   const filteredEvidence = useMemo(() => {
     const entries = (caseFile?.evidence ?? []).filter((item) => {
@@ -64,34 +87,165 @@ export default function InvestigationPage() {
     }
   }
 
-  if (loading) return <AppShell eyebrow="INVESTIGATION"><p className="loading-state" role="status">Laying out the evidence...</p></AppShell>;
-  if (error && !caseFile) return <AppShell eyebrow="INVESTIGATION"><section className="error-panel" role="alert"><h1>Investigation unavailable</h1><p>{error}</p><Link to={`/cases/${caseId}`}>Return to the case brief</Link></section></AppShell>;
+  if (loading) return <AppShell eyebrow="INVESTIGATION"><p className="loading-state" role="status" aria-live="polite">Laying out the evidence…</p></AppShell>;
+  if (error && !caseFile) {
+    return (
+      <AppShell eyebrow="INVESTIGATION">
+        <section className="error-panel" role="alert">
+          <p className="eyebrow">INVESTIGATION UNAVAILABLE</p>
+          <h1>Could not open the evidence room.</h1>
+          <p>{error}</p>
+          <div className="error-actions">
+            <button className="secondary-button" type="button" onClick={() => { setLoading(true); setReloadKey((key) => key + 1); }}>Try again</button>
+            <Link to={`/cases/${caseId}`}>Return to the case brief</Link>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
   if (!caseFile) return null;
+
+  const suspect = caseFile.suspects.find((person) => person.id === selectedSuspect);
 
   return (
     <AppShell eyebrow="INVESTIGATION ROOM">
-      <div className="investigation-top"><div><Link className="back-link" to={`/cases/${caseId}`}>Back to case brief</Link><p className="eyebrow">CASE / {caseFile.id} - OPEN INVESTIGATION</p><h1>{caseFile.title}</h1></div><div className="progress-chip">{caseFile.evidence.length} evidence items <span>·</span> 1 final accusation</div></div>
+      <div className="investigation-top">
+        <div>
+          <Link className="back-link" to={`/cases/${caseId}`}>Back to case brief</Link>
+          <p className="eyebrow">CASE / {caseFile.id} - OPEN INVESTIGATION</p>
+          <h1>{caseFile.title}</h1>
+        </div>
+        <div className="progress-chip">{caseFile.evidence.length} evidence items <span aria-hidden="true">·</span> 1 final accusation</div>
+      </div>
+
       <div className="investigation-layout">
-        <aside className="suspect-rail"><div className="rail-heading"><p className="eyebrow">PEOPLE</p><span>{caseFile.suspects.length}</span></div><p className="rail-help">Compare their accounts with the record.</p>
-          {caseFile.suspects.map((person, index) => <button className={`suspect-card ${selectedSuspect === person.id ? 'is-selected' : ''}`} key={person.id} onClick={() => setSelectedSuspect(person.id)} aria-pressed={selectedSuspect === person.id}><span className="suspect-index">0{index + 1}</span><span className="avatar-mark">{person.name.slice(0, 1)}</span><span className="suspect-copy"><strong>{person.name}</strong><small>{person.role}</small></span><span className="selection-dot" aria-hidden="true" /></button>)}
-          {selectedSuspect && <div className="suspect-detail"><p className="eyebrow">PROFILE</p><h3>{caseFile.suspects.find((item) => item.id === selectedSuspect)?.name}</h3><p>{caseFile.suspects.find((item) => item.id === selectedSuspect)?.profile}</p><p><strong>Alibi:</strong> {caseFile.suspects.find((item) => item.id === selectedSuspect)?.statedAlibi}</p><p><strong>Apparent motive:</strong> {caseFile.suspects.find((item) => item.id === selectedSuspect)?.apparentMotive}</p></div>}
+        <aside className="suspect-rail" aria-label="Suspects">
+          <div className="rail-heading"><p className="eyebrow">PEOPLE</p><span>{caseFile.suspects.length}</span></div>
+          <p className="rail-help">Compare their accounts with the record.</p>
+          {caseFile.suspects.map((person, index) => (
+            <button
+              className={`suspect-card ${selectedSuspect === person.id ? 'is-selected' : ''}`}
+              key={person.id}
+              type="button"
+              onClick={() => setSelectedSuspect(person.id)}
+              aria-pressed={selectedSuspect === person.id}
+              aria-label={`Select ${person.name}, ${person.role}`}
+            >
+              <span className="suspect-index">0{index + 1}</span>
+              <span className="avatar-mark" aria-hidden="true">{person.name.slice(0, 1)}</span>
+              <span className="suspect-copy"><strong>{person.name}</strong><small>{person.role}</small></span>
+              <span className="selection-dot" aria-hidden="true" />
+            </button>
+          ))}
+          {suspect && (
+            <div className="suspect-detail" aria-live="polite">
+              <p className="eyebrow">PROFILE</p>
+              <h2>{suspect.name}</h2>
+              <p>{suspect.profile}</p>
+              <p><strong>Alibi:</strong> {suspect.statedAlibi}</p>
+              <p><strong>Apparent motive:</strong> {suspect.apparentMotive}</p>
+            </div>
+          )}
         </aside>
-        <section className="evidence-room"><div className="room-heading"><div><p className="eyebrow">RELEASED MATERIAL</p><h2>Evidence room</h2></div><span className="fiction-tag">FICTIONAL CASE</span></div>
-          <div className="filter-bar"><label>Type<select value={evidenceType} onChange={(event) => setEvidenceType(event.target.value)}><option value="all">All evidence</option><option value="chat">Simulated chats</option><option value="image">Evidence cards</option><option value="document">Documents</option><option value="witness_statement">Statements</option><option value="cctv_transcript">Simulated CCTV</option><option value="timeline">Timeline artifacts</option></select></label><label>Related person<select value={suspectFilter} onChange={(event) => setSuspectFilter(event.target.value)}><option value="all">Anyone</option>{caseFile.suspects.map((person) => <option value={person.id} key={person.id}>{person.name}</option>)}</select></label><label>Sort<select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}><option value="time">By time</option><option value="title">By title</option></select></label></div>
-          {filteredEvidence.length === 0 ? <div className="empty-state"><p>No evidence matches these filters.</p><button className="text-button" onClick={() => { setEvidenceType('all'); setSuspectFilter('all'); }}>Clear filters</button></div> : <div className="evidence-grid">{filteredEvidence.map((item, index) => <button className={`evidence-tile ${selectedEvidence?.id === item.id ? 'is-open' : ''}`} key={item.id} onClick={() => setSelectedEvidence(selectedEvidence?.id === item.id ? null : item)} aria-expanded={selectedEvidence?.id === item.id}><span className="tile-top"><span>{String(index + 1).padStart(2, '0')} / {item.type.replaceAll('_', ' ')}</span><span aria-hidden="true">↗</span></span><strong>{item.title}</strong><span className="tile-description">{item.description}</span><span className="tile-meta"><span>{formatEvidenceTime(item.timestamp)}</span><span className={`reliability reliability-${item.reliability}`}>{item.reliability} reliability</span></span></button>)}</div>}
+
+        <section className="evidence-room" aria-labelledby="evidence-room-title">
+          <div className="room-heading">
+            <div><p className="eyebrow">RELEASED MATERIAL</p><h2 id="evidence-room-title">Evidence room</h2></div>
+            <span className="fiction-tag">FICTIONAL CASE</span>
+          </div>
+          <div className="filter-bar" aria-label="Evidence filters">
+            <label>Type<select value={evidenceType} onChange={(event) => setEvidenceType(event.target.value)}>
+              <option value="all">All evidence</option><option value="chat">Simulated chats</option><option value="image">Evidence cards</option><option value="document">Documents</option><option value="witness_statement">Statements</option><option value="cctv_transcript">Simulated CCTV</option><option value="timeline">Timeline artifacts</option>
+            </select></label>
+            <label>Related person<select value={suspectFilter} onChange={(event) => setSuspectFilter(event.target.value)}>
+              <option value="all">Anyone</option>{caseFile.suspects.map((person) => <option value={person.id} key={person.id}>{person.name}</option>)}
+            </select></label>
+            <label>Sort<select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+              <option value="time">By time</option><option value="title">By title</option>
+            </select></label>
+          </div>
+          <p className="filter-count" role="status" aria-live="polite">Showing {filteredEvidence.length} of {caseFile.evidence.length} evidence items.</p>
+          {filteredEvidence.length === 0 ? (
+            <div className="empty-state">
+              <p>No evidence matches these filters.</p>
+              <button className="text-button" type="button" onClick={() => { setEvidenceType('all'); setSuspectFilter('all'); }}>Clear filters</button>
+            </div>
+          ) : (
+            <div className="evidence-grid">
+              {filteredEvidence.map((item, index) => (
+                <button
+                  className={`evidence-tile ${selectedEvidence?.id === item.id ? 'is-open' : ''}`}
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSelectedEvidence(selectedEvidence?.id === item.id ? null : item)}
+                  aria-expanded={selectedEvidence?.id === item.id}
+                  aria-controls={selectedEvidence?.id === item.id ? 'evidence-detail' : undefined}
+                >
+                  <span className="tile-top"><span>{String(index + 1).padStart(2, '0')} / {item.type.replaceAll('_', ' ')}</span><span aria-hidden="true">↗</span></span>
+                  <strong>{item.title}</strong>
+                  <span className="tile-description">{item.description}</span>
+                  <span className="tile-meta"><span>{formatEvidenceTime(item.timestamp)}</span><span className={`reliability reliability-${item.reliability}`}>{item.reliability} reliability</span></span>
+                </button>
+              ))}
+            </div>
+          )}
           {selectedEvidence && <EvidenceDetail item={selectedEvidence} />}
-          <section className="timeline-panel"><div className="room-heading"><div><p className="eyebrow">RECONSTRUCTION</p><h2>Timeline</h2></div><span className="small-muted">Chronological · UTC</span></div><ol className="timeline-list">{caseFile.timeline.map((event) => <li key={event.id}><time>{formatEvidenceTime(event.timestamp ?? event.approximateTime)}</time><div><p>{event.description}</p><span>{event.certainty}</span></div></li>)}</ol></section>
+
+          <section className="timeline-panel" aria-labelledby="timeline-title">
+            <div className="room-heading"><div><p className="eyebrow">RECONSTRUCTION</p><h2 id="timeline-title">Timeline</h2></div><span className="small-muted">Chronological · UTC</span></div>
+            <ol className="timeline-list">{caseFile.timeline.map((event) => (
+              <li key={event.id}><time>{formatEvidenceTime(event.timestamp ?? event.approximateTime)}</time><div><p>{event.description}</p><span>{event.certainty}</span></div></li>
+            ))}</ol>
+          </section>
         </section>
       </div>
-      <div className="accusation-bar"><div><p className="eyebrow">ONE FINAL ACCUSATION</p><p>{selectedSuspect ? `Selected: ${caseFile.suspects.find((item) => item.id === selectedSuspect)?.name}` : 'Select a suspect to continue.'}</p></div><button className="primary-link button-link" disabled={!selectedSuspect || busy} onClick={() => setConfirming(true)}><span>Make final accusation</span><span aria-hidden="true">→</span></button></div>
-      {error && <p className="inline-error" role="alert">{error}</p>}
-      {confirming && <div className="dialog-backdrop"><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-copy"><p className="eyebrow">FINAL DECISION</p><h2 id="confirm-title">Submit your accusation?</h2><p id="confirm-copy">You selected <strong>{caseFile.suspects.find((item) => item.id === selectedSuspect)?.name}</strong>. You get one final accusation and cannot change it afterward.</p><div className="dialog-actions"><button className="secondary-button" disabled={busy} onClick={() => setConfirming(false)}>Go back</button><button className="primary-link button-link" disabled={busy} onClick={makeAccusation}><span>{busy ? 'Recording...' : 'Confirm accusation'}</span><span aria-hidden="true">→</span></button></div></section></div>}
+
+      <div className="accusation-bar">
+        <div><p className="eyebrow">ONE FINAL ACCUSATION</p><p>{suspect ? `Selected: ${suspect.name}` : 'Select a suspect to continue.'}</p></div>
+        <button
+          className="primary-link button-link"
+          type="button"
+          disabled={!selectedSuspect || busy}
+          onClick={(event) => { confirmationTriggerRef.current = event.currentTarget; setError(''); setConfirming(true); }}
+        >
+          <span>Make final accusation</span><span aria-hidden="true">→</span>
+        </button>
+      </div>
+
+      <dialog
+        ref={dialogRef}
+        className="confirm-dialog"
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-copy"
+        onClose={() => {
+          setConfirming(false);
+          confirmationTriggerRef.current?.focus();
+        }}
+      >
+        <p className="eyebrow">FINAL DECISION</p>
+        <h2 id="confirm-title">Submit your accusation?</h2>
+        <p id="confirm-copy">You selected <strong>{suspect?.name}</strong>. You get one final accusation and cannot change it afterward.</p>
+        {error && <p className="inline-error" role="alert">{error}</p>}
+        <div className="dialog-actions">
+          <button className="secondary-button" type="button" disabled={busy} onClick={() => setConfirming(false)}>Go back</button>
+          <button className="primary-link button-link" type="button" disabled={busy} onClick={makeAccusation} aria-busy={busy}>
+            <span>{busy ? 'Recording…' : 'Confirm accusation'}</span><span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </dialog>
     </AppShell>
   );
 }
 
 function EvidenceDetail({ item }) {
-  return <article className="evidence-detail"><div className="room-heading"><div><p className="eyebrow">ARTIFACT DETAIL</p><h3>{item.title}</h3></div><span className="fiction-tag">{item.fictionalLabel}</span></div><p>{item.description}</p><ArtifactContent item={item} /><div className="detail-context"><p><strong>Source:</strong> {item.sourceContext}</p><p><strong>Reliability ({item.reliability}):</strong> {item.reliabilityReason}</p></div></article>;
+  return (
+    <article className="evidence-detail" id="evidence-detail" aria-label={`Evidence details: ${item.title}`}>
+      <div className="room-heading"><div><p className="eyebrow">ARTIFACT DETAIL</p><h3>{item.title}</h3></div><span className="fiction-tag">{item.fictionalLabel}</span></div>
+      <p>{item.description}</p>
+      <ArtifactContent item={item} />
+      <div className="detail-context"><p><strong>Source:</strong> {item.sourceContext}</p><p><strong>Reliability ({item.reliability}):</strong> {item.reliabilityReason}</p></div>
+    </article>
+  );
 }
 
 function ArtifactContent({ item }) {

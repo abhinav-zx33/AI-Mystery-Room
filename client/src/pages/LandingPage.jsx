@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 export default function LandingPage() {
   return (
     <main className="landing page-shell">
+      <a className="skip-link" href="#landing-content">Skip to main content</a>
       <header className="topbar">
         <Link className="brand" to="/" aria-label="TraceBit home"><span className="brand-mark" aria-hidden="true">✳</span><span>TRACEBIT</span></Link>
+        <nav className="app-nav" aria-label="Main navigation"><Link to="/history">Case history</Link></nav>
         <span className="edition">A FICTIONAL INVESTIGATION</span>
       </header>
-      <section className="hero" aria-labelledby="hero-title">
+      <section className="hero" id="landing-content" aria-labelledby="hero-title">
         <div className="hero-copy"><p className="eyebrow"><span className="status-dot" /> CREATE A FICTIONAL INVESTIGATION</p><h1 id="hero-title">Every clue has<br /><em>a story.</em></h1><p className="intro">Follow the evidence through a fictional investigation. Then decide what really happened.</p><Link className="primary-link" to="/create"><span>Create a Mystery</span><span aria-hidden="true">↗</span></Link><p className="fiction-note"><span aria-hidden="true">ⓘ</span> All cases and evidence are fictional simulations.</p></div>
         <div className="case-art" aria-label="Decorative illustration of a detective evidence board"><div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" /><div className="evidence-card evidence-card-back"><span>ARCHIVE / 07</span><i>FILE<br />CLOSED?</i><b>◌</b></div><div className="evidence-card evidence-card-front"><span>CASE NOTE · 23:14</span><i>Someone<br />was here.</i><b>— M.</b></div><span className="pin pin-amber" /><span className="pin pin-red" /><span className="art-caption">EVIDENCE BOARD / UNCLASSIFIED</span></div>
       </section>
