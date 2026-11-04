@@ -8,7 +8,7 @@ async function startServer() {
   await ensureDemoCaseSeeded();
 
   app.listen(env.port, () => {
-    console.log(`AI Mystery Room API listening on port ${env.port} (${env.nodeEnv}).`);
+    console.log(`TraceBit API listening on port ${env.port} (${env.nodeEnv}).`);
   });
 }
 

@@ -5,6 +5,7 @@ import CaseBriefPage from '../pages/CaseBriefPage.jsx';
 import InvestigationPage from '../pages/InvestigationPage.jsx';
 import ResultPage from '../pages/ResultPage.jsx';
 import HistoryPage from '../pages/HistoryPage.jsx';
+import AmbientMusicToggle from '../components/AmbientMusicToggle.jsx';
 
 function NotFoundPage() {
   return <main className="page-shell not-found"><p className="eyebrow">404 · FILE NOT FOUND</p><h1>This page isn’t in the case file.</h1><a className="primary-link" href="/"><span>Return to the case desk</span><span aria-hidden="true">↗</span></a></main>;
@@ -12,14 +13,17 @@ function NotFoundPage() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/create" element={<CreateCasePage />} />
-      <Route path="/cases/:caseId" element={<CaseBriefPage />} />
-      <Route path="/cases/:caseId/investigate" element={<InvestigationPage />} />
-      <Route path="/cases/:caseId/result" element={<ResultPage />} />
-      <Route path="/history" element={<HistoryPage />} />
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/create" element={<CreateCasePage />} />
+        <Route path="/cases/:caseId" element={<CaseBriefPage />} />
+        <Route path="/cases/:caseId/investigate" element={<InvestigationPage />} />
+        <Route path="/cases/:caseId/result" element={<ResultPage />} />
+        <Route path="/history" element={<HistoryPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+      <AmbientMusicToggle />
+    </>
   );
 }

@@ -12,8 +12,7 @@ export function getCaseRecord(caseId) {
   return CaseModel.findOne({ id: caseId }).lean();
 }
 
-export async function createDemoSession(caseId) {
-  const caseRecord = await getCaseRecord(caseId);
+export async function createSessionForCaseRecord(caseRecord) {
   if (!caseRecord || caseRecord.status !== 'ready') return null;
 
   const sessionToken = randomBytes(32).toString('base64url');
@@ -23,7 +22,12 @@ export async function createDemoSession(caseId) {
     status: 'in_progress',
   });
 
-  return { id: sessionToken, caseId, status: 'in_progress' };
+  return { id: sessionToken, caseId: caseRecord.id, status: 'in_progress' };
+}
+
+export async function createDemoSession(caseId) {
+  const caseRecord = await getCaseRecord(caseId);
+  return createSessionForCaseRecord(caseRecord);
 }
 
 export async function findDemoSession(caseId, sessionToken) {
@@ -61,7 +65,7 @@ export async function submitDemoAccusation(caseId, sessionToken, suspectId) {
   const updatedSession = await GameSessionModel.findOneAndUpdate(
     { _id: sessionRecord._id, status: 'in_progress' },
     { $set: { status: 'resolved', accusation } },
-    { new: true },
+    { returnDocument: 'after' },
   ).lean();
 
   if (updatedSession) return { kind: 'resolved', session: updatedSession };

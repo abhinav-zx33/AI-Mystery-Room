@@ -1,15 +1,15 @@
 import { demoCaseId } from './api.js';
 
-const storageKey = `ai-mystery-room:${demoCaseId}:session`;
+const storageKey = (caseId = demoCaseId) => `ai-mystery-room:${caseId}:session`;
 
-export function getStoredSessionId() {
-  return window.sessionStorage.getItem(storageKey);
+export function getStoredSessionId(caseId = demoCaseId) {
+  return window.sessionStorage.getItem(storageKey(caseId));
 }
 
-export function storeSessionId(sessionId) {
-  window.sessionStorage.setItem(storageKey, sessionId);
+export function storeSessionId(sessionId, caseId = demoCaseId) {
+  window.sessionStorage.setItem(storageKey(caseId), sessionId);
 }
 
-export function clearStoredSessionId() {
-  window.sessionStorage.removeItem(storageKey);
+export function clearStoredSessionId(caseId = demoCaseId) {
+  window.sessionStorage.removeItem(storageKey(caseId));
 }

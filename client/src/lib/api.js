@@ -14,12 +14,21 @@ async function request(path, options = {}, allowConflict = false) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok && !(allowConflict && response.status === 409)) {
-    throw new Error(payload.error?.message ?? 'That request could not be completed. Please try again.');
+    const message = payload.error?.message ?? 'That request could not be completed. Please try again.';
+    const details = Array.isArray(payload.error?.details) ? payload.error.details.join(' ') : '';
+    throw new Error(details ? `${message} ${details}` : message);
   }
   return { ...payload, statusCode: response.status };
 }
 
 export const demoCaseId = CASE_ID;
+
+export async function createCase(input) {
+  return request('/api/v1/cases', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
 
 export async function getCase(caseId = CASE_ID) {
   const payload = await request(casePath(caseId));

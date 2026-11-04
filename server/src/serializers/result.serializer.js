@@ -2,12 +2,14 @@ export function serializeResult(caseRecord, solution, session) {
   const culprit = caseRecord.suspects.find(({ id }) => id === solution.culpritId);
 
   return {
+    caseTitle: caseRecord.title,
     isCorrect: session.accusation.isCorrect,
     score: session.accusation.isCorrect ? 100 : 0,
     submittedSuspectId: session.accusation.suspectId,
     attemptsUsed: 1,
     status: 'resolved',
-    culprit: { id: culprit.id, name: culprit.name },
+    culprit: { id: culprit.id, name: culprit.name, role: culprit.role },
+    setting: caseRecord.setting,
     explanation: solution.explanation,
     motive: solution.motive,
     method: solution.method,

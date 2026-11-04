@@ -35,6 +35,7 @@ export function serializePublicCase(source) {
     timeline: source.timeline.map((event) => ({
       id: event.id,
       timestamp: event.timestamp,
+      approximateTime: event.approximateTime,
       description: event.description,
       relatedSuspectIds: [...event.relatedSuspectIds],
       relatedEvidenceIds: [...event.relatedEvidenceIds],

@@ -19,7 +19,7 @@ export default function CaseBriefPage() {
       setLoading(true);
       try {
         const data = await getCase(caseId);
-        const storedId = getStoredSessionId();
+        const storedId = getStoredSessionId(caseId);
         let session = null;
         if (storedId) {
           try { session = await getSession(storedId, caseId); }
@@ -45,7 +45,7 @@ export default function CaseBriefPage() {
     try {
       let session = existingSession;
       if (!session) session = await createSession(caseId);
-      storeSessionId(session.id);
+      storeSessionId(session.id, caseId);
       navigate(session.status === 'resolved' ? `/cases/${caseId}/result` : `/cases/${caseId}/investigate`);
     } catch (requestError) {
       setError(requestError.message);
@@ -57,13 +57,13 @@ export default function CaseBriefPage() {
     <AppShell eyebrow="CASE BRIEF">
       {loading ? <p className="loading-state" role="status">Opening the case file…</p> : error && !caseFile ? <ErrorPanel message={error} /> : caseFile && (
         <>
-          <div className="page-kicker"><Link to="/create">← Back to demo desk</Link><span>FILE / BW-001</span></div>
+          <div className="page-kicker"><Link to="/create">← Back to case creator</Link><span>CASE FILE / {caseFile.id}</span></div>
           <section className="case-hero">
-            <div><p className="eyebrow">FICTIONAL THEFT · BELLWEATHER COAST</p><h1>{caseFile.title}</h1><p className="lede">{caseFile.summary}</p></div>
-            <div className="case-stamp"><span>STATUS</span><strong>{existingSession?.status === 'resolved' ? 'RESOLVED' : 'OPEN'}</strong><small>DEMO CASE · 001</small></div>
+            <div><p className="eyebrow">FICTIONAL {caseFile.incidentType} · {caseFile.setting}</p><h1>{caseFile.title}</h1><p className="lede">{caseFile.summary}</p></div>
+            <div className="case-stamp"><span>STATUS</span><strong>{existingSession?.status === 'resolved' ? 'RESOLVED' : 'OPEN'}</strong><small>FICTIONAL CASE</small></div>
           </section>
           <div className="brief-grid">
-            <section className="brief-panel"><p className="eyebrow">THE INCIDENT</p><p>The silver tide bell disappeared from a sealed gallery display during a storm blackout. The front glass seal is still intact. Someone may have used the narrow service passage behind the case.</p><dl className="brief-facts"><div><dt>SETTING</dt><dd>{caseFile.setting}</dd></div><div><dt>INCIDENT WINDOW</dt><dd>October 24, 2026 · around 21:00</dd></div><div><dt>ESTIMATED PLAY TIME</dt><dd>{caseFile.playTimeMinutes} minutes</dd></div></dl></section>
+            <section className="brief-panel"><p className="eyebrow">THE INCIDENT</p><p>{caseFile.summary}</p><dl className="brief-facts"><div><dt>SETTING</dt><dd>{caseFile.setting}</dd></div><div><dt>INCIDENT TIME</dt><dd>{formatIncidentTime(caseFile.incidentTime)}</dd></div><div><dt>DIFFICULTY / PLAY TIME</dt><dd>{caseFile.difficulty} · {caseFile.playTimeMinutes} minutes</dd></div></dl></section>
             <section className="brief-panel roster-panel"><p className="eyebrow">PEOPLE TO QUESTION</p><div className="roster-count"><strong>{caseFile.suspects.length}</strong><span>suspects</span></div><div className="roster-names">{caseFile.suspects.map((person) => <div key={person.id}><span className="avatar-mark">{person.name.slice(0, 1)}</span><span><strong>{person.name}</strong><small>{person.role}</small></span></div>)}</div></section>
           </div>
           <div className="brief-footer"><p className="fiction-note">Evidence in this case is simulated fiction. No real records or camera footage are involved.</p><div>{error && <p className="inline-error" role="alert">{error}</p>}<button className="primary-link button-link" disabled={busy} onClick={enterCase}><span>{busy ? 'Preparing file…' : existingSession?.status === 'resolved' ? 'Review your result' : existingSession ? 'Continue investigation' : 'Enter investigation'}</span><span aria-hidden="true">↗</span></button></div></div>
@@ -71,6 +71,12 @@ export default function CaseBriefPage() {
       )}
     </AppShell>
   );
+}
+
+function formatIncidentTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${date.toLocaleString('en', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC`;
 }
 
 function ErrorPanel({ message }) {

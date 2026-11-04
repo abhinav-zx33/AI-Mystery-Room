@@ -26,7 +26,7 @@ export async function ensureDemoCaseSeeded() {
         generation: { provider: 'demo', model: 'fixed-sample', schemaVersion: '1.0' },
       },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
 
   await CaseSolutionModel.updateOne(

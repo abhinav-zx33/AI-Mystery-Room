@@ -14,7 +14,7 @@ export default function ResultPage() {
   useEffect(() => {
     let active = true;
     async function load() {
-      const sessionId = getStoredSessionId();
+      const sessionId = getStoredSessionId(caseId);
       if (!sessionId) {
         if (active) { setError('Submit a final accusation before opening the solution.'); setLoading(false); }
         return;
@@ -33,7 +33,7 @@ export default function ResultPage() {
   }, [caseId]);
 
   function replay() {
-    clearStoredSessionId();
+    clearStoredSessionId(caseId);
     navigate(`/cases/${caseId}`);
   }
 
@@ -43,12 +43,12 @@ export default function ResultPage() {
   return (
     <AppShell eyebrow="CASE REVEAL">
       <div className={`result-banner ${result.isCorrect ? 'result-correct' : 'result-incorrect'}`}><p className="eyebrow">YOUR ACCUSATION · {result.score} / 100 POINTS</p><h1>{result.isCorrect ? 'You followed the evidence.' : 'The clues led somewhere else.'}</h1><p>{result.isCorrect ? 'Your accusation was correct.' : 'Your accusation was recorded. Here is what the case file shows.'}</p></div>
-      <section className="culprit-card"><div><p className="eyebrow">THE CASE RESOLUTION</p><h2>{result.culprit.name}</h2><p className="culprit-role">Lighthouse keeper · Bellweather</p></div><div className="answer-seal" aria-label="Case resolved">CASE<br />CLOSED</div></section>
-      <section className="reveal-section"><p className="eyebrow">HOW IT HAPPENED</p><h2>The route behind the display</h2><p className="reveal-copy">{result.explanation}</p><div className="method-grid"><article><span>MOTIVE</span><p>{result.motive}</p></article><article><span>METHOD</span><p>{result.method}</p></article></div></section>
+      <section className="culprit-card"><div><p className="eyebrow">THE CASE RESOLUTION · {result.caseTitle}</p><h2>{result.culprit.name}</h2><p className="culprit-role">{result.culprit.role} · {result.setting}</p></div><div className="answer-seal" aria-label="Case resolved">CASE<br />CLOSED</div></section>
+      <section className="reveal-section"><p className="eyebrow">HOW IT HAPPENED</p><h2>The case explained</h2><p className="reveal-copy">{result.explanation}</p><div className="method-grid"><article><span>MOTIVE</span><p>{result.motive}</p></article><article><span>METHOD</span><p>{result.method}</p></article></div></section>
       <section className="reveal-section"><div className="room-heading"><div><p className="eyebrow">THE EVIDENCE CHAIN</p><h2>Clues that connect</h2></div><span className="small-muted">Supporting, not certainty alone</span></div><ol className="chain-list">{result.evidenceChain.map((item, index) => <li key={item.evidenceId}><span className="chain-number">0{index + 1}</span><div><h3>{item.title}</h3><p>{item.deduction}</p><small>{item.strength}</small></div></li>)}</ol></section>
       <section className="reveal-section"><div className="room-heading"><div><p className="eyebrow">WHAT ABOUT THE OTHERS?</p><h2>Other suspects</h2></div></div><div className="clearance-grid">{result.suspectClearance.map((item) => <article key={item.suspectId}><h3>{item.name}</h3><p>{item.explanation}</p></article>)}</div></section>
       <section className="reveal-section"><div className="room-heading"><div><p className="eyebrow">RECONSTRUCTED SEQUENCE</p><h2>The night in order</h2></div></div><ol className="timeline-list result-timeline">{result.timelineReconstruction.map((event) => <li key={event.timestamp}><time>{event.timestamp}</time><div><p>{event.description}</p></div></li>)}</ol></section>
-      <div className="result-actions"><p className="fiction-note">This is a fixed, fictional demo solution. The server revealed it only after your accusation.</p><button className="primary-link button-link" onClick={replay}><span>Play the case again</span><span aria-hidden="true">↗</span></button></div>
+      <div className="result-actions"><p className="fiction-note">This is a fictional case solution. The server revealed it only after your accusation.</p><button className="primary-link button-link" onClick={replay}><span>Play the case again</span><span aria-hidden="true">↗</span></button></div>
     </AppShell>
   );
 }

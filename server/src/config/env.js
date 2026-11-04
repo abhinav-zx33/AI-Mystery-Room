@@ -27,6 +27,9 @@ if (!mongodbUri || !/^mongodb(?:\+srv)?:\/\//.test(mongodbUri)) {
   throw new Error('MONGODB_URI is required and must be a MongoDB connection URI.');
 }
 
+const geminiApiKey = process.env.GEMINI_API_KEY?.trim() ?? '';
+const geminiModel = process.env.GEMINI_MODEL?.trim() || 'gemini-3.6-flash';
+
 const sessionTokenSecret = process.env.SESSION_TOKEN_SECRET;
 if (!sessionTokenSecret || sessionTokenSecret.length < 32) {
   throw new Error('SESSION_TOKEN_SECRET is required and must contain at least 32 characters. Generate a random secret for local development.');
@@ -37,5 +40,7 @@ export const env = Object.freeze({
   port: positiveInteger(process.env.PORT, 'PORT', 5000),
   clientOrigin,
   mongodbUri,
+  geminiApiKey,
+  geminiModel,
   sessionTokenSecret,
 });

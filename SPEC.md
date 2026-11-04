@@ -1,8 +1,8 @@
-# AI Mystery Room — Product & Engineering Specification
+# TraceBit — Product & Engineering Specification
 **Document type:** Single Source of Truth (SSOT) for Codex  
 **Version:** 1.0  
 **Status:** Initial implementation specification  
-**Project name:** AI Mystery Room  
+**Project name:** TraceBit
 **Frontend:** React  
 **Backend:** Node.js + Express  
 **Database:** MongoDB  
@@ -36,7 +36,7 @@ The project is complete when a user can enter a premise, generate a playable mys
 ## 1. Product Overview
 
 ### 1.1 Product statement
-AI Mystery Room is a web application where a user supplies a short scenario, story seed, or mystery premise. The application uses Gemini to create a fictional investigation with suspects, a timeline, evidence artifacts, and one canonical culprit. The user examines the evidence and chooses who they believe committed the fictional crime or incident.
+TraceBit is a web application where a user supplies a short scenario, story seed, or mystery premise. The application uses Gemini to create a fictional investigation with suspects, a timeline, evidence artifacts, and one canonical culprit. The user examines the evidence and chooses who they believe committed the fictional crime or incident.
 
 ### 1.2 Problem and value
 The product turns a user’s creative prompt into a structured detective game. It combines generative storytelling with evidence-based deduction, giving users an interactive mystery rather than a static story.
