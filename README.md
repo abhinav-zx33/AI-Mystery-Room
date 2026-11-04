@@ -101,6 +101,24 @@ If Gemini is not configured, `POST /api/v1/cases` returns a controlled setup err
 4. **Gemini generation** - implemented; live generation requires `GEMINI_API_KEY` and still needs a live run-through.
 5. **Hardening** - implemented with per-process rate limits, origin allowlisting, API security headers, bounded JSON bodies, request IDs, privacy-aware logs, stricter route validation, and server tests.
 6. **Polish** - implemented with responsive investigation and history views, keyboard-accessible accusation confirmation, skip links, clearer loading/error/empty states, and improved touch and focus styles.
-7. **Deployment readiness** - not implemented.
+7. **Deployment readiness** - documented; hosting-provider configuration is still needed.
+
+## Deployment
+
+TraceBit uses a React/Vite frontend and an Express API. The frontend calls the API through relative `/api/...` paths, so production hosting must serve the built client and route `/api/*` requests to the Express server on the same public origin. Configure the host's SPA fallback so client-side routes return `index.html`. Vite's development proxy is not used in production.
+
+1. Build the frontend with `npm run build`; publish the generated `client/dist` directory as the static site.
+2. Run the backend with `npm start` on a Node.js 20+ service. The host must pass its assigned `PORT` to the process.
+3. Add backend environment variables in the hosting provider's secret/environment settings. Do not upload `server/.env` or put backend secrets in frontend build variables:
+   - `NODE_ENV=production`
+   - `MONGODB_URI` set to the production MongoDB connection URI and database name
+   - `SESSION_TOKEN_SECRET` set to a unique random value at least 32 characters long
+   - `CLIENT_ORIGIN` set to the exact HTTPS origin of the deployed frontend (no trailing path); comma-separate origins only if multiple frontend origins are required
+   - `GEMINI_API_KEY` and `GEMINI_MODEL` if generated cases should be available
+   - `PORT` if the host does not set it automatically; otherwise use the platform-provided value
+4. Configure the host's reverse proxy/routing: `/api/*` goes to the backend, while other paths serve the frontend SPA. Set the health check path to `/api/v1/health`.
+5. Confirm the deployed health endpoint returns `{ "status": "ok" }`, then try the fixed demo case and (if configured) generate a fictional case.
+
+The current rate limiter stores counters in the server process. A single backend instance is the supported deployment configuration; before using multiple instances, use a shared rate-limit store and configure trusted proxy handling for the hosting platform. Never commit real environment files. If a database credential or API key was previously exposed, rotate it before deploying.
 
 See `SPEC.md` for the full product and engineering requirements.
